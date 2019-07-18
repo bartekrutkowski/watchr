@@ -5,13 +5,31 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/urfave/cli"
 )
 
+// CatchInterrupt function listens for CTRL^C events and exits the program
+// when detecting one
+func CatchInterrupt() {
+	interrupt := make(chan os.Signal, 2)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-interrupt      // Wait for the interrupt to be sent to the channel
+		fmt.Printf("\r") // Supress printing ^C to the terminal
+		log.Println("*** Ctrl+C pressed in Terminal, exiting watchr")
+		os.Exit(0)
+	}()
+}
+
 func watchFile(file string, cmd string, quiet bool, verbose bool) error {
+	CatchInterrupt()
+
 	if !quiet {
 		log.Printf("*** Starting watchr for the file: %s\n", file)
 	}
