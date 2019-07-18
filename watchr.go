@@ -13,7 +13,7 @@ import (
 
 func watchFile(file string, cmd string, quiet bool, verbose bool) error {
 	if !quiet {
-		fmt.Printf("*** Starting watchr for the file: %s\n", file)
+		log.Printf("*** Starting watchr for the file: %s\n", file)
 	}
 
 	// Get the watched file stats to store first modification date for comparison later
@@ -42,18 +42,18 @@ func watchFile(file string, cmd string, quiet bool, verbose bool) error {
 			totalDiff += diff       // add new modification duration to total durations
 
 			if !quiet {
-				fmt.Printf("** The file %s was modified at: %s\n", file, inf.ModTime())
+				log.Printf("** The file %s was modified at: %s\n", file, inf.ModTime())
 			}
 
 			if cmd == "" { // If the --cmd flag was not set and --verbose was, print info
 				if !quiet && verbose {
-					fmt.Println("* Not executing any command")
-					fmt.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
+					log.Println("* Not executing any command")
+					log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
 						modCount, diff, totalDiff/time.Duration(modCount))
 				}
 			} else { // If the --cmd flag has been set, execute the command provided
 				if !quiet {
-					fmt.Printf("* Executing: %s\n", cmd)
+					log.Printf("* Executing: %s\n", cmd)
 				}
 
 				s := strings.Fields(cmd)         // Split the cmd string into binary and arguments strings
@@ -68,8 +68,8 @@ func watchFile(file string, cmd string, quiet bool, verbose bool) error {
 					log.Fatal(err)
 				}
 				if !quiet && verbose {
-					fmt.Printf("* Command output:\n%s", out)
-					fmt.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s, command execution %s\n",
+					log.Printf("* Command output:\n%s", out)
+					log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s, command execution %s\n",
 						modCount, diff, totalDiff/time.Duration(modCount), exeDur)
 				}
 			}
