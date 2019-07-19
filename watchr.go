@@ -146,19 +146,19 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 		// Check if we have --cfg flag passed
 		if cfg != "" && c.NumFlags() > 1 {
-			fmt.Println("The --cfg flag cannot be used with any other flags")
+			log.Println("ERROR: The --cfg flag cannot be used with any other flags\n")
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
 		// Check if we have at least --file flag passed
 		if cfg == "" && file == "" || c.NumFlags() < 1 {
-			fmt.Println("The --file flag with file path is required")
+			log.Println("ERROR: The --file flag with file path is required\n")
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
 
 		if quiet && verbose {
-			fmt.Println("The --quiet and --verbose flags are mutually exclusive")
+			log.Println("ERROR: The --quiet and --verbose flags are mutually exclusive\n")
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
