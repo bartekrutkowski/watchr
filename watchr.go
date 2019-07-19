@@ -104,10 +104,21 @@ func main() {
 	app.Version = "1.0.0"
 	app.Usage = "Watch given file for modifications and execute commands when they are detected"
 
-	var cmd, file string
-	var quiet, verbose bool
+	var (
+		cfg     string
+		cmd     string
+		file    string
+		quiet   bool
+		verbose bool
+	)
 
 	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:        "cfg",
+			Value:       "",
+			Usage:       "Config file path (optional, not usable with any other flags)",
+			Destination: &cfg,
+		},
 		cli.StringFlag{
 			Name:        "cmd",
 			Value:       "",
@@ -133,18 +144,25 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		// Check if we have at least --file flag passed
-		if c.NumFlags() < 1 {
-			fmt.Println("Missing --file flag with file path")
+		// Check if we have --cfg flag passed
+		if cfg != "" && c.NumFlags() > 1 {
+			fmt.Println("The --cfg flag cannot be used with any other flags")
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
+		// Check if we have at least --file flag passed
+		if cfg == "" && file == "" || c.NumFlags() < 1 {
+			fmt.Println("The --file flag with file path is required")
+			cli.ShowAppHelp(c)
+			os.Exit(1)
+		}
+
 		if quiet && verbose {
 			fmt.Println("The --quiet and --verbose flags are mutually exclusive")
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
-		// main application code
+		// Main application code
 		err := watchFile(file, cmd, quiet, verbose)
 		return err
 	}
