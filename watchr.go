@@ -13,9 +13,72 @@ import (
 	"github.com/urfave/cli"
 )
 
-// CatchInterrupt function listens for CTRL^C events and exits the program
+var (
+	cfg     string
+	cmd     string
+	file    string
+	quiet   bool
+	verbose bool
+)
+
+var flags = []cli.Flag{
+	cli.StringFlag{
+		Name:        "cfg",
+		Value:       "",
+		Usage:       "Config file path (optional, not usable with any other flags)",
+		Destination: &cfg,
+	},
+	cli.StringFlag{
+		Name:        "cmd",
+		Value:       "",
+		Usage:       "Command to execute, when file modification is detected, eg. curl (optional)",
+		Destination: &cmd,
+	},
+	cli.StringFlag{
+		Name:        "file",
+		Value:       "",
+		Usage:       "Path to the file to watch for modifications, eg. foobar.go (required)",
+		Destination: &file,
+	},
+	cli.BoolFlag{
+		Name:        "quiet",
+		Usage:       "Enable quiet operation and supress any and all output (optional, not usable with --verbose)",
+		Destination: &quiet,
+	},
+	cli.BoolFlag{
+		Name:        "verbose",
+		Usage:       "Enable verbose output, including command execution output (optional, not usable with --quiet)",
+		Destination: &verbose,
+	},
+}
+
+func action(c *cli.Context) error {
+	// Check if we have --cfg flag passed
+	if cfg != "" && c.NumFlags() > 1 {
+		log.Println("ERROR: The --cfg flag cannot be used with any other flags")
+		cli.ShowAppHelp(c)
+		os.Exit(1)
+	}
+	// Check if we have at least --file flag passed
+	if cfg == "" && file == "" || c.NumFlags() < 1 {
+		log.Println("ERROR: The --file flag with file path is required")
+		cli.ShowAppHelp(c)
+		os.Exit(1)
+	}
+
+	if quiet && verbose {
+		log.Println("ERROR: The --quiet and --verbose flags are mutually exclusive")
+		cli.ShowAppHelp(c)
+		os.Exit(1)
+	}
+	// Main application code
+	err := watchFile(file, cmd, quiet, verbose)
+	return err
+}
+
+// catchInterrupt function listens for CTRL^C events and exits the program
 // when detecting one
-func CatchInterrupt() {
+func catchInterrupt() {
 	interrupt := make(chan os.Signal, 2)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
@@ -28,7 +91,7 @@ func CatchInterrupt() {
 }
 
 func watchFile(file string, cmd string, quiet bool, verbose bool) error {
-	CatchInterrupt()
+	catchInterrupt()
 
 	if !quiet {
 		log.Printf("*** Starting watchr for the file: %s\n", file)
@@ -99,74 +162,15 @@ func main() {
 	// Watch for file modifications and execute given command when such modification
 	// is detected.
 
+	// Define the urfave/cli app object
 	app := cli.NewApp()
 	app.Name = "watchr"
 	app.Version = "1.0.0"
 	app.Usage = "Watch given file for modifications and execute commands when they are detected"
+	app.Flags = flags
+	app.Action = action
 
-	var (
-		cfg     string
-		cmd     string
-		file    string
-		quiet   bool
-		verbose bool
-	)
-
-	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:        "cfg",
-			Value:       "",
-			Usage:       "Config file path (optional, not usable with any other flags)",
-			Destination: &cfg,
-		},
-		cli.StringFlag{
-			Name:        "cmd",
-			Value:       "",
-			Usage:       "Command to execute, when file modification is detected, eg. curl (optional)",
-			Destination: &cmd,
-		},
-		cli.StringFlag{
-			Name:        "file",
-			Value:       "",
-			Usage:       "Path to the file to watch for modifications, eg. foobar.go (required)",
-			Destination: &file,
-		},
-		cli.BoolFlag{
-			Name:        "quiet",
-			Usage:       "Enable quiet operation and supress any and all output (optional, not usable with --verbose)",
-			Destination: &quiet,
-		},
-		cli.BoolFlag{
-			Name:        "verbose",
-			Usage:       "Enable verbose output, including command execution output (optional, not usable with --quiet)",
-			Destination: &verbose,
-		},
-	}
-
-	app.Action = func(c *cli.Context) error {
-		// Check if we have --cfg flag passed
-		if cfg != "" && c.NumFlags() > 1 {
-			log.Println("ERROR: The --cfg flag cannot be used with any other flags\n")
-			cli.ShowAppHelp(c)
-			os.Exit(1)
-		}
-		// Check if we have at least --file flag passed
-		if cfg == "" && file == "" || c.NumFlags() < 1 {
-			log.Println("ERROR: The --file flag with file path is required\n")
-			cli.ShowAppHelp(c)
-			os.Exit(1)
-		}
-
-		if quiet && verbose {
-			log.Println("ERROR: The --quiet and --verbose flags are mutually exclusive\n")
-			cli.ShowAppHelp(c)
-			os.Exit(1)
-		}
-		// Main application code
-		err := watchFile(file, cmd, quiet, verbose)
-		return err
-	}
-	// Run the application
+	// Run the app
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
