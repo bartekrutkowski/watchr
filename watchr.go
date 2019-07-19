@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -52,27 +53,38 @@ var flags = []cli.Flag{
 	},
 }
 
-func action(c *cli.Context) error {
+func parseFlags(cfg string, file string, cmd string, quiet bool, verbose bool) (err error) {
 	// Check if we have --cfg flag passed
-	if cfg != "" && c.NumFlags() > 1 {
-		log.Println("ERROR: The --cfg flag cannot be used with any other flags")
-		cli.ShowAppHelp(c)
-		os.Exit(1)
+	if cfg != "" && (file != "" || cmd != "" || quiet != false || verbose != false) {
+		err := errors.New("ERROR: The --cfg flag cannot be used with any other flags")
+		log.Printf("%s\n", err)
+		return err
 	}
 	// Check if we have at least --file flag passed
-	if cfg == "" && file == "" || c.NumFlags() < 1 {
-		log.Println("ERROR: The --file flag with file path is required")
+	if cfg == "" && file == "" {
+		err := errors.New("ERROR: The --cfg flag with config or --file flag with file path is required")
+		log.Printf("%s\n", err)
+		return err
+	}
+
+	if quiet && verbose {
+		err := errors.New("ERROR: The --quiet and --verbose flags are mutually exclusive")
+		log.Printf("%s\n", err)
+		return err
+	}
+
+	return err
+}
+
+func action(c *cli.Context) error {
+	err := parseFlags(cfg, file, cmd, quiet, verbose)
+	if err != nil {
 		cli.ShowAppHelp(c)
 		os.Exit(1)
 	}
 
-	if quiet && verbose {
-		log.Println("ERROR: The --quiet and --verbose flags are mutually exclusive")
-		cli.ShowAppHelp(c)
-		os.Exit(1)
-	}
 	// Main application code
-	err := watchFile(file, cmd, quiet, verbose)
+	err = watchFile(cfg, file, cmd, quiet, verbose)
 	return err
 }
 
@@ -90,7 +102,8 @@ func catchInterrupt() {
 	}()
 }
 
-func watchFile(file string, cmd string, quiet bool, verbose bool) error {
+func watchFile(cfg string, file string, cmd string, quiet bool, verbose bool) error {
+	// Set up interrupt watcher to be able to exit the infinite loop
 	catchInterrupt()
 
 	if !quiet {
