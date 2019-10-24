@@ -1,0 +1,17 @@
+{
+    "quiet": false,
+    "verbose": true,
+    "files": [
+        {
+            "path": "/tmp/file1",
+            "cmd": "echo 'file1 bla'"
+        },
+        {
+            "path": "/tmp/file2",
+            "cmd": "touch /tmp/file2bla"
+        },
+        {
+            "path": "/tmp/file3"
+        }
+    ]
+}

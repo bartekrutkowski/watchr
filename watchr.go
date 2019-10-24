@@ -8,9 +8,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 )
 
@@ -21,6 +23,19 @@ var (
 	quiet   bool
 	verbose bool
 )
+
+// FileConf structure for pairs of file to watch and command to execute
+type FileConf struct {
+	Cmd  string
+	Path string
+}
+
+// WatchrConf structure for complete watchr configuration, logging verbosity and FileConf map
+type WatchrConf struct {
+	Quiet   bool
+	Verbose bool
+	Files   []FileConf
+}
 
 var flags = []cli.Flag{
 	cli.StringFlag{
@@ -76,16 +91,26 @@ func parseFlags(cfg string, file string, cmd string, quiet bool, verbose bool) (
 	return err
 }
 
-func action(c *cli.Context) error {
-	err := parseFlags(cfg, file, cmd, quiet, verbose)
-	if err != nil {
-		cli.ShowAppHelp(c)
-		os.Exit(1)
+func makeConf(cfg string, file string, cmd string, quiet bool, verbose bool) (conf WatchrConf, err error) {
+	if cfg != "" {
+		viper.SetConfigFile(cfg)
+
+		if err := viper.ReadInConfig(); err != nil {
+			log.Printf("Error reading config file, %v", err)
+			os.Exit(1)
+		}
+
+		if err := viper.Unmarshal(&conf); err != nil {
+			log.Printf("Error loading config data into struct, %v", err)
+			os.Exit(1)
+		}
+
+		return conf, err
 	}
 
-	// Main application code
-	err = watchFile(cfg, file, cmd, quiet, verbose)
-	return err
+	conf.Files = append(conf.Files, FileConf{Cmd: cmd, Path: file})
+
+	return conf, err
 }
 
 // catchInterrupt function listens for CTRL^C events and exits the program
@@ -102,10 +127,7 @@ func catchInterrupt() {
 	}()
 }
 
-func watchFile(cfg string, file string, cmd string, quiet bool, verbose bool) error {
-	// Set up interrupt watcher to be able to exit the infinite loop
-	catchInterrupt()
-
+func watchFile(file string, cmd string, quiet bool, verbose bool) {
 	if !quiet {
 		log.Printf("*** Starting watchr for the file: %s\n", file)
 	}
@@ -169,6 +191,33 @@ func watchFile(cfg string, file string, cmd string, quiet bool, verbose bool) er
 			}
 		}
 	}
+}
+
+func action(c *cli.Context) error {
+	var wg sync.WaitGroup
+	// Set up interrupt watcher to be able to exit the infinite loop
+	catchInterrupt()
+
+	err := parseFlags(cfg, file, cmd, quiet, verbose)
+	if err != nil {
+		cli.ShowAppHelp(c)
+		os.Exit(1)
+	}
+
+	conf, err := makeConf(cfg, file, cmd, quiet, verbose)
+	if err != nil {
+		cli.ShowAppHelp(c)
+		os.Exit(1)
+	}
+
+	// Main application code
+	for _, i := range conf.Files {
+		wg.Add(1)
+		go watchFile(i.Path, i.Cmd, conf.Quiet, conf.Verbose)
+	}
+	wg.Wait()
+
+	return err
 }
 
 func main() {
