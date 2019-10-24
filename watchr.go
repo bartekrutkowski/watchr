@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 )
@@ -143,50 +144,64 @@ func watchFile(file string, cmd string, quiet bool, verbose bool) {
 	var diff time.Duration      // Difference between last known modification and current modification times
 	var totalDiff time.Duration // Total time between all modifications for stats
 
+	watchr, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watchr.Close()
+
+	err = watchr.Add(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Main loop, run the modification time comparison and command execution infinitely
 	for {
-		// Check the watched file stats again
-		inf, err := os.Stat(file)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		diff = inf.ModTime().Sub(modTime) // Compare last known modTime to the current one
-		if diff != 0 {                    // Time difference detected, file was modified
-			modTime = inf.ModTime() // Save new modTime
-			modCount++              // increase modification counter
-			totalDiff += diff       // add new modification duration to total durations
-
-			if !quiet {
-				log.Printf("** The file %s was modified at: %s\n", file, inf.ModTime())
+		select {
+		case _ = <-watchr.Events:
+			// Check the watched file stats again
+			inf, err := os.Stat(file)
+			if err != nil {
+				log.Fatal(err)
 			}
 
-			if cmd == "" { // If the --cmd flag was not set and --verbose was, print info
-				if !quiet && verbose {
-					log.Println("* Not executing any command")
-					log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
-						modCount, diff, totalDiff/time.Duration(modCount))
-				}
-			} else { // If the --cmd flag has been set, execute the command provided
+			diff = inf.ModTime().Sub(modTime) // Compare last known modTime to the current one
+			if diff != 0 {                    // Time difference detected, file was modified
+				modTime = inf.ModTime() // Save new modTime
+				modCount++              // increase modification counter
+				totalDiff += diff       // add new modification duration to total durations
+
 				if !quiet {
-					log.Printf("* Executing: %s\n", cmd)
+					log.Printf("** The file %s was modified at: %s\n", file, inf.ModTime())
 				}
 
-				s := strings.Fields(cmd)         // Split the cmd string into binary and arguments strings
-				bin := s[0]                      // First part of the cmd string is the binary
-				args := strings.Join(s[1:], " ") // Rest of the cmd string are the binary arguments, if any
+				if cmd == "" { // If the --cmd flag was not set and --verbose was, print info
+					if !quiet && verbose {
+						log.Println("* Not executing any command")
+						log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
+							modCount, diff, totalDiff/time.Duration(modCount))
+					}
+				} else { // If the --cmd flag has been set, execute the command provided
+					if !quiet {
+						log.Printf("* Executing: %s\n", cmd)
+					}
 
-				exe := exec.Command(bin, args) // Execute the command and store its output
-				exeStart := time.Now()         // Store the time before command execution for measuring its execution time
-				out, err := exe.Output()
-				exeDur := time.Since(exeStart) // Store the execution time of the command for stats
-				if err != nil {
-					log.Fatal(err)
-				}
-				if !quiet && verbose {
-					log.Printf("* Command output:\n%s", out)
-					log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s, command execution %s\n",
-						modCount, diff, totalDiff/time.Duration(modCount), exeDur)
+					s := strings.Fields(cmd)         // Split the cmd string into binary and arguments strings
+					bin := s[0]                      // First part of the cmd string is the binary
+					args := strings.Join(s[1:], " ") // Rest of the cmd string are the binary arguments, if any
+
+					exe := exec.Command(bin, args) // Execute the command and store its output
+					exeStart := time.Now()         // Store the time before command execution for measuring its execution time
+					out, err := exe.Output()
+					exeDur := time.Since(exeStart) // Store the execution time of the command for stats
+					if err != nil {
+						log.Fatal(err)
+					}
+					if !quiet && verbose {
+						log.Printf("* Command output:\n%s", out)
+						log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s, command execution %s\n",
+							modCount, diff, totalDiff/time.Duration(modCount), exeDur)
+					}
 				}
 			}
 		}
