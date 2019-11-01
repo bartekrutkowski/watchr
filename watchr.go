@@ -25,19 +25,6 @@ var (
 	verbose bool
 )
 
-// FileConf structure for pairs of file to watch and command to execute
-type FileConf struct {
-	Cmd  string
-	Path string
-}
-
-// WatchrConf structure for complete watchr configuration, logging verbosity and FileConf map
-type WatchrConf struct {
-	Quiet   bool
-	Verbose bool
-	Files   []FileConf
-}
-
 var flags = []cli.Flag{
 	cli.StringFlag{
 		Name:        "cfg",
@@ -67,6 +54,19 @@ var flags = []cli.Flag{
 		Usage:       "Enable verbose output, including command execution output (optional, not usable with --quiet)",
 		Destination: &verbose,
 	},
+}
+
+// FileConf structure for pairs of file to watch and command to execute
+type FileConf struct {
+	Cmd  string
+	Path string
+}
+
+// WatchrConf structure for complete watchr configuration, logging verbosity and FileConf map
+type WatchrConf struct {
+	Quiet   bool
+	Verbose bool
+	Files   []FileConf
 }
 
 func parseFlags(cfg string, file string, cmd string, quiet bool, verbose bool) (err error) {
