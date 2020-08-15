@@ -202,27 +202,32 @@ func watchFile(file string, cmd string, quiet bool, verbose bool) {
 				log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
 					modCount, diff, totalDiff/time.Duration(modCount))
 			}
-		} else { // If the --cmd flag has been set, execute the command provided
-			if !quiet {
-				log.Printf("* Executing: %s\n", cmd)
-			}
 
-			s := strings.Fields(cmd)         // Split the cmd string into binary and arguments strings
-			bin := s[0]                      // First part of the cmd string is the binary
-			args := strings.Join(s[1:], " ") // Rest of the cmd string are the binary arguments, if any
+			continue
+		}
 
-			exe := exec.Command(bin, args) // #nosec G204 Execute the command and store its output
-			exeStart := time.Now()         // Store the time before command execution for measuring its execution time
-			out, err := exe.Output()
-			exeDur := time.Since(exeStart) // Store the execution time of the command for stats
-			if err != nil {
-				log.Fatal(err)
-			}
-			if !quiet && verbose {
-				log.Printf("* Command output:\n%s", out)
-				log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s, command execution %s\n",
-					modCount, diff, totalDiff/time.Duration(modCount), exeDur)
-			}
+		// If the --cmd flag has been set, execute the command provided
+		if !quiet {
+			log.Printf("* Executing: %s\n", cmd)
+		}
+
+		s := strings.Fields(cmd)         // Split the cmd string into binary and arguments strings
+		bin := s[0]                      // First part of the cmd string is the binary
+		args := strings.Join(s[1:], " ") // Rest of the cmd string are the binary arguments, if any
+
+		exe := exec.Command(bin, args) // #nosec G204 Execute the command and store its output
+		exeStart := time.Now()         // Store the time before command execution for measuring its execution time
+		out, err := exe.Output()
+		exeDur := time.Since(exeStart) // Store the execution time of the command for stats
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if !quiet && verbose {
+			log.Printf("* Command output:\n%s", out)
+			log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s, command execution %s\n",
+				modCount, diff, totalDiff/time.Duration(modCount), exeDur)
 		}
 	}
 }
