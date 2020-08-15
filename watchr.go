@@ -196,12 +196,10 @@ func watchFile(file string, cmd string, quiet bool, verbose bool) {
 			log.Printf("** The file %s was modified at: %s\n", file, inf.ModTime())
 		}
 
-		if cmd == "" { // If the --cmd flag was not set and --verbose was, print info
-			if !quiet && verbose {
-				log.Println("* Not executing any command")
-				log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
-					modCount, diff, totalDiff/time.Duration(modCount))
-			}
+		if cmd == "" && !quiet && verbose { // If the --cmd flag was not set and --verbose was, print info
+			log.Println("* Not executing any command")
+			log.Printf("** Stats: %d modifications, last modified %s ago, average modification time %s\n",
+				modCount, diff, totalDiff/time.Duration(modCount))
 
 			continue
 		}
